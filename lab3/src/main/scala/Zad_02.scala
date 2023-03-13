@@ -15,8 +15,7 @@ def hipoteza(liczba: Int): Unit = {
         else czyPierwsza(k, dzielnik - 1)
     }
     
-    if (liczba<4) println("Liczba nie może być przedstawiona jako iloczyn liczb pierwszych")
-    else pomocnicza(2, liczba-2)  
+    pomocnicza(2, liczba-2)  
 }
 
 @main def zad_02(liczba: Int): Unit = {
