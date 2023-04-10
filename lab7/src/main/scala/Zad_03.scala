@@ -45,7 +45,16 @@ def obliczWyniki(oceny: Seq[Ocena]): Seq[Wynik] ={
     val krzys = listaOsobyWyniki.toSeq.sortBy(x=>(-x._5,-x._3,x._2)).zipWithIndex.map{case ((imię,nazwisko,średniWdzięk, średniSpryt, suma),index)=>{
         Wynik(index+1,imię,nazwisko,średniWdzięk, średniSpryt, suma)
     }}
-    krzys
+
+    val jacek = krzys.foldLeft(List[Wynik](), 1)({
+      case ((acc, miejsce), curr) =>
+        if (acc.isEmpty) (List(curr.copy(miejsce = miejsce)), miejsce + 1)
+        else if (curr.suma == acc.head.suma && curr.średniSpryt == acc.head.średniSpryt && curr.średniWdzięk == acc.head.średniWdzięk)  {
+        (curr.copy(miejsce = acc.head.miejsce) :: acc, miejsce)}
+        else (curr.copy(miejsce = miejsce) :: acc, miejsce + 1)
+    })
+
+    jacek(0).reverse
 }
 
 
