@@ -57,7 +57,7 @@ class Pracownik(k: Int) extends Actor with ActorLogging {
 }
 
 @main
-def dupajaja : Unit = {
+def lab12 : Unit = {
   val system = ActorSystem("Fibonacci")
   val kierownik = system.actorOf(Props(new Boss()), "kierownik")
   kierownik ! Oblicz(12)
