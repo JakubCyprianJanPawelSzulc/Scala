@@ -42,53 +42,55 @@ class Organizator extends Actor with ActorLogging {
   def zZawodnikami(zawodnicy: List[ActorRef]): Receive = {
     case Runda =>
       val grupa = context.actorOf(Props(Grupa(zawodnicy)), "grupa")
+      log.info("Grupa eliminacyjna")
       grupa ! Grupa.Runda
     case Organizator.Wyniki(w: Map[ActorRef, Option[Ocena]]) =>
       val sum = w.collect {
-        case (actorRef, Some(ocena)) => (actorRef, ocena.nota1 + ocena.nota2 + ocena.nota3)
+        case (actorRef, Some(ocena)) => (actorRef, ocena.nota1 + ocena.nota2 + ocena.nota3, ocena.nota1, ocena.nota2, ocena.nota3)
       }
-      val sortedResults = sum.toList.sortBy(-_._2)
-      val bestResults = sortedResults.take(20)
+      val sorted = sum.toList.sortBy(_._2).reverse
+      val bestResults = sorted.take(20)
       context.become(zWynikami(bestResults))
     case Stop =>
-      log.info("kończymy zawody w stanie zZawodnikami")
+      log.info("Kończymy zawody w stanie zZawodnikami")
       context.system.terminate()
-  }
+    }
 
-  def zWynikami(wyniki: List[(ActorRef, Int)]): Receive = {
+  def zWynikami(wyniki: List[(ActorRef, Int, Int, Int, Int)]): Receive = {
     case Runda =>
-      log.info("tworzę grupę finałową")
+      log.info("Grupa finałowa")
       val grupa = context.actorOf(Props(Grupa(wyniki.map(_._1))), "grupa2")
       grupa ! Grupa.Runda
+
     case Organizator.Wyniki(w: Map[ActorRef, Option[Ocena]]) =>
-      log.info("Wyniki koncowe przyszly")
       val sum = w.collect {
-        case (actorRef, Some(ocena)) => (actorRef, ocena.nota1 + ocena.nota2 + ocena.nota3)
+        case (actorRef, Some(ocena)) => (actorRef, ocena.nota1 + ocena.nota2 + ocena.nota3 + wyniki.find(_._1 == actorRef).get._2 + wyniki.find(_._1 == actorRef).get._3 + wyniki.find(_._1 == actorRef).get._4, ocena.nota1+wyniki.find(_._1 == actorRef).get._2, ocena.nota2+wyniki.find(_._1 == actorRef).get._3, ocena.nota3+wyniki.find(_._1 == actorRef).get._4)
       }
-      val sortedResults = sum.toList.sortBy(-_._2)
-      val bestResults = sortedResults.take(20)
-      context.become(zWynikamiKoncowymi(bestResults))
-    case Organizator.Wyniki =>
-      log.info("Wyniki po 1 rundzie:")
-      wyniki.foreach(w => log.info(s"${w._1.path.name}: ${w._2}"))
+      val sorted = sum.toList.sortBy(_._2).reverse
+      context.become(zWynikamiKoncowymi(sorted))
+    case Wyniki =>
+      log.info("Klasyfikacja:")
+      wyniki.foreach {
+        case (actorRef, suma, n1, n2, n3) =>
+          log.info(s"${actorRef.path.name} $suma ($n1, $n2, $n3)")
+      }
     case Stop =>
-      log.info("kończymy zawody w stanie zWynikami")
+      log.info("Kończymy zawody w stanie zWynikami")
       context.system.terminate()
   }
 
-  def zWynikamiKoncowymi(wyniki: List[(ActorRef, Int)]): Receive = {
-    case Organizator.Wyniki =>
-      log.info("Wyniki koncowe:")
-      wyniki.foreach(w => log.info(s"${w._1.path.name}: ${w._2}"))
-      context.become(koniec)
+  def zWynikamiKoncowymi(wyniki: List[(ActorRef, Int, Int, Int, Int)]): Receive = {
+    case Wyniki =>
+      log.info("Klasyfikacja:")
+      wyniki.foreach {
+        case (actorRef, suma, n1, n2, n3) =>
+          log.info(s"${actorRef.path.name} $suma ($n1, $n2, $n3)")
+      }
     case Stop =>
-      log.info("kończymy zawody w stanie zWynikamiKoncowymi")
-      context.system.terminate()
-}
-  def koniec: Receive = {
-    case Stop =>
-      log.info("kończymy zawody w stanie koniec")
+      log.info("Kończymy zawody w stanie zWynikamiKoncowymi")
       context.system.terminate()
   }
-
+  
 }
+
+

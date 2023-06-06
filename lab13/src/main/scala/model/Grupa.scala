@@ -21,20 +21,25 @@ object Grupa {
 }
 
 class Grupa(zawodnicy: List[ActorRef]) extends Actor with ActorLogging {
-  var wyniki: Map[ActorRef, Option[Ocena]] = Map()
   def receive: Receive = {
     case Grupa.Runda => {
       // log.info("[grupa] Runda")
       zawodnicy.foreach(z => z ! Zawodnik.Próba)
     }
     case Grupa.Wynik(ocena) =>{
-      wyniki += (sender() -> ocena)
-      // log.info(s"[grupa] otrzymałem wynik")
-      if (wyniki.size == zawodnicy.size) {
-        // log.info(s"[grupa] wszyscy zawodnicy zakończyli próby")
-        context.parent ! Organizator.Wyniki(wyniki)
+      context.become(zmiana(Map(sender() -> ocena)))
+    }
+    def zmiana(wyniki: Map[ActorRef, Option[Ocena]]) : Receive ={
+      case Grupa.Runda => {
+        // log.info("[grupa] Runda")
+        zawodnicy.foreach(z => z ! Zawodnik.Próba)
+      }
+      case Grupa.Wynik(ocena) =>{
+        if (wyniki.size + 1 == zawodnicy.size) {
+          context.parent ! Organizator.Wyniki(wyniki + (sender() -> ocena))
+        }
+        context.become(zmiana(wyniki + (sender() -> ocena)))
       }
     }
-    // case msg => log.info(s"msg")
   }
 }
