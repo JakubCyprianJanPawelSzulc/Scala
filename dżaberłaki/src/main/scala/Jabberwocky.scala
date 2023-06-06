@@ -23,18 +23,12 @@ object SiłaWyższa {
 }
 class SiłaWyższa extends Actor with ActorLogging {
   import SiłaWyższa._
-  var zamek1 : ActorRef = _
-  var zamek2 : ActorRef = _
   def receive : Receive = {
     case Cyk =>
       log.info("Cyk")
       // wysyłamy polacenie „Strzelać” do obu Zamków
-      if (context.child("zamek1").isEmpty) {
-        zamek1 = context.actorOf(Props(new Zamek()), "zamek1")
-      }
-      if (context.child("zamek2").isEmpty) {
-        zamek2 = context.actorOf(Props(new Zamek()), "zamek2")
-      }
+      val zamek1 = context.actorOf(Props(new Zamek()), "zamek1")
+      val zamek2 = context.actorOf(Props(new Zamek()), "zamek2")
       context.become(zZamkami(zamek1, zamek2))
   }
   def zZamkami(zamek1: ActorRef, zamek2: ActorRef): Receive = {
@@ -51,38 +45,25 @@ class SiłaWyższa extends Actor with ActorLogging {
 }
 
 class Zamek extends Actor with ActorLogging{
-  def receive: Receive = {
-    case SiłaWyższa.Strzelać => {
-      var obroncy : Set[ActorRef] = Set.empty
-      var mojaNazwa: String = ""
-      val przeciwnik = if (self.path.name == "zamek1") {
-        context.actorSelection("../zamek2")
-      } else {
-        context.actorSelection("../zamek1")
-      }
-      if (przeciwnik == context.actorSelection("../zamek1")) {
-        mojaNazwa = "zamek2"
-        log.info("Zamek2")
-      } else {
-        mojaNazwa = "zamek1"
-        log.info("Zamek1")
-      }
+  def receive: Receive = bezObroncow(Set.empty, "")
 
-      if (obroncy.isEmpty) {
-        for (i <- 1 to 100) {
-          obroncy = obroncy + context.actorOf(Props(new Obrońca(przeciwnik)), s"${mojaNazwa}_obronca${i}")
-        }
+  def bezObroncow(obroncy: Set[ActorRef], mojaNazwa: String): Receive = {
+    case SiłaWyższa.Strzelać =>
+      val przeciwnik = if (self.path.name == "zamek1") context.actorSelection("../zamek2") else context.actorSelection("../zamek1")
+      val mojaNazwa = if (przeciwnik == context.actorSelection("../zamek1")) "zamek2" else "zamek1"
+      log.info("Strzelać")
+      val updatedObroncy = (1 to 100).foldLeft(obroncy) { (acc, i) =>
+        acc + context.actorOf(Props(new Obrońca(przeciwnik)), s"${mojaNazwa}_obronca$i")
       }
-      context.become(zObroncami(obroncy))
-    }
+      context.become(zObroncami(updatedObroncy))
   }
 
   def zObroncami(obroncy: Set[ActorRef]): Receive = {
-    case SiłaWyższa.Strzelać => {
-      log.info("Strzelac")
+    case SiłaWyższa.Strzelać =>
+      log.info("Strzelać")
       obroncy.foreach(_ ! SiłaWyższa.Strzelać)
-    }
-    case Obrońca.Pocisk => {
+
+    case Obrońca.Pocisk =>
       val random = scala.util.Random
       val szansa = obroncy.size.toDouble / (2 * 100)
       if (random.nextDouble() < szansa) {
@@ -96,7 +77,6 @@ class Zamek extends Actor with ActorLogging{
         }
         context.become(zObroncami(updatedObroncy))
       }
-    }
   }
 }
 
