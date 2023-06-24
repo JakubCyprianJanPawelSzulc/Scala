@@ -1,19 +1,7 @@
 package kolokwium_2
 
-/*
-  UWAGA: W sformułowaniu zadania zabrakło jednej wskazówki/informacji:
-
-    Jeśli słowo, o którego liczbę wystąpień pytamy, nie występuje w strukturze
-    hierarchii aktorów, to program powinien zwrócić dla niego (tzn. Szef powinien
-    wypisać w konsoli) wartość 0.
-
-    Przykładowo, w sytuacji zobrazowanej na rysunku, komunikaty I("al") oraz
-    I("alert") powinny zwrócić (w konsoli) odpowiedź 0.
-*/
-
 import akka.actor.{ActorSystem, Actor, ActorLogging, ActorRef, Props}
 
-// Metoda nie wymaga zmian. Wczytuje dane z pliku i zwraca listę słów
 private def dane: List[String] = {
   import scala.io.Source
   val plik = Source.fromFile("src/main/resources/dane.txt", "UTF-8")
@@ -25,9 +13,36 @@ private def dane: List[String] = {
 @main def main: Unit = {
   val system = ActorSystem("sys")
   val szef = system.actorOf(Props[Szef](), "szef")
-  // println(dane)
   dane.foreach { słowo => szef ! W(słowo) }
-  szef ! I("dniestru")
-  szef ! I("jaja")
-  szef ! I("nie")
+
+  def askUser(): Unit = {
+    Thread.sleep(100)
+    println("Co chcesz zrobic?")
+    println("1. Wstaw slowo")
+    println("2. Policz ile razy wystepuje slowo")
+    println("3. Zakoncz")
+    val input = scala.io.StdIn.readInt()
+    input match {
+      case 1 => {
+        println("Podaj slowo")
+        val słowo = scala.io.StdIn.readLine()
+        szef ! W(słowo)
+        askUser()
+      }
+      case 2 => {
+        println("Podaj slowo")
+        val słowo = scala.io.StdIn.readLine()
+        szef ! I(słowo)
+        askUser()
+      }
+      case 3 => {
+        system.terminate()
+      }
+      case _ => {
+        println("Niepoprawna komenda")
+        askUser()
+      }
+    }
+  }
+  askUser()
 }
