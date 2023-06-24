@@ -24,7 +24,7 @@ def race(): Unit = {
   val system = ActorSystem("LeMans")
   import system.dispatcher
 
-  val MaxTick = 300 // liczba „cyknięć” do wykonania (można eksperymentować)
+  val MaxTick = 100 // liczba „cyknięć” do wykonania (można eksperymentować)
 
   // UWAGA: „nazwy”, tworzące ścieżkę do aktora muszą być zapisywane
   // z użyciem znaków ASCII (a nie np. UTF8)!

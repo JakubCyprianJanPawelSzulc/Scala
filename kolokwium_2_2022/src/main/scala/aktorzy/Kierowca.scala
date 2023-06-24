@@ -18,51 +18,59 @@ class Kierowca(workshop: ActorRef, dt: Int) extends Actor with ActorLogging {
   import Kierowca._
 
   def receive: Receive = {
-    case SetupCar =>
+    case SetupCar =>{
       val car = context.actorOf(Props[Samochód](), "car")
-
-      context.become(setup(car, 0))
+      context.become(gotowy(car, 0))
+    }
+    case Tick =>{
+      println("Kierowca nie ma samochodu")
+    }
+    case GetRoute =>{
+      println("Kierowca nie ma samochodu")
+    }
   }
 
-  def setup(car: ActorRef, distance: Float): Receive = {
-    case Tick =>
+  def gotowy(car: ActorRef, route: Float): Receive={
+    case Tick =>{
       car ! Samochód.Next
-
-    case CarReaction(reaction) =>
-      if (reaction.getOrElse(None) != None) {
-        val speed = reaction.get
-
-        val time = dt.toFloat / 60
-        val s = distance + (speed * time)
-
-        context.become(setup(car, s))
-      } else {
-        context.become(carBroken(car, distance))
+    }
+    case CarReaction(ov) =>{
+      if (ov == None){
         workshop ! Warsztat.Malfunction(car)
+        context.become(naprawa(car, route))
       }
-
-    case GetRoute =>
-      sender() ! Organizator.RouteTraveled(distance)
-
-    case msg =>
+      else{
+        val v = ov.get
+        val dt2 = dt.toFloat
+        val s = route + (dt2/60)*v
+        context.become(gotowy(car, s))
+      }
+    }
+    case GetRoute => {
+      sender() ! Organizator.RouteTraveled(route)
+    }
   }
 
-  def carBroken(car: ActorRef, distance: Float): Receive = {
-    case RepairResult(repairResult) =>
-      if (repairResult.getOrElse(None) != None) {
-        context.become(setup(car, distance))
-      } else context.become(finishedRace(distance))
-
-    case GetRoute =>
-      sender() ! Organizator.RouteTraveled(distance)
-
-    case msg =>
+  def naprawa(car: ActorRef, route: Float): Receive={
+    case RepairResult(effect) =>{
+      if (effect == None){
+        context.become(samochodZepsutyCalkowicie(car, route))
+      }
+      else if (effect.get == car){
+        context.become(gotowy(car, route))
+      }
+    }
+    case GetRoute =>{
+      sender() ! Organizator.RouteTraveled(route)
+    }
+    case Tick =>{
+    }
   }
 
-  def finishedRace(distance: Float): Receive = {
-    case GetRoute =>
-      sender() ! Organizator.RouteTraveled(distance)
-
-    case msg =>
+  def samochodZepsutyCalkowicie(car: ActorRef, route: Float): Receive={
+    case GetRoute =>{
+      sender() ! Organizator.RouteTraveled(route)
+    }
+    case _ =>{}
   }
 }

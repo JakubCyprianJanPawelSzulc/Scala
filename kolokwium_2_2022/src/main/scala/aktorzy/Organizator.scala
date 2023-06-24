@@ -16,60 +16,47 @@ class Organizator extends Actor with ActorLogging {
   import Organizator._
 
   def receive: Receive = {
-    case SetMaxTick(mc) =>
-      log.info(s"liczba cyknięć do wykonania: $mc")
-
+    case SetMaxTick(maxTick) =>
       val workshop = context.actorOf(Props[Warsztat](), "workshop")
-
-      val dt = scala.util.Random.nextInt(10)
-
-      val driversSet = (0 to 10).map(index => {
-        context.actorOf(Props(new Kierowca(workshop, dt)), s"driver$index")
-      }).toSet
-
-      driversSet.foreach(driver => {
-        driver ! Kierowca.SetupCar
-      })
-
-      context.become(afterInit(mc, 0, workshop, driversSet))
-    case _ => // inne pomijamy
-  }
-
-  def afterInit(maxTick: Int, currentTicks: Int, workshop: ActorRef, driverSet: Set[ActorRef]): Receive = {
-    case Tick =>
-      log.info("Tick")
-      if (maxTick == currentTicks + 1 ) {
-        context.become(finishedRace(Set(), driverSet.toList))
-
-        driverSet.foreach(driver => {
-          driver ! Kierowca.GetRoute
-        })
-      } else {
-        context.become(afterInit(maxTick, currentTicks + 1, workshop, driverSet))
-        workshop ! Warsztat.Tick
-
-        driverSet.foreach(driver => {
-          driver ! Kierowca.Tick
-        })
+      val drivers = (1 to 10).map((x)=>context.actorOf(Props(new Kierowca(workshop, 1)), s"driver$x")).toList
+      for (i <- 1 to 10){
+        drivers(i-1) ! Kierowca.SetupCar
       }
+      context.become(gotowy(workshop, drivers, maxTick, 0))
+    case Tick => {
+    }
   }
 
-  def finishedRace(distances: Set[(ActorRef, Float)], driverList: List[ActorRef]): Receive = {
-    case RouteTraveled(distance) =>
-      if (driverList.drop(1).isEmpty) {
-        val leaderboard = distances.incl((sender(), distance)).toList.sortBy(pair => pair._2).reverse
+  def gotowy(workshop: ActorRef, drivers: List[ActorRef], maxTick: Int, currentTick: Int): Receive={
+    case Tick =>{
+      if (currentTick < maxTick){
+        workshop ! Warsztat.Tick
+        drivers.foreach(_ ! Kierowca.Tick)
+        context.become(gotowy(workshop, drivers, maxTick, currentTick + 1))
+      }
+      else{
+        drivers.foreach(_ ! Kierowca.GetRoute)
+        context.become(zWynikami(workshop, drivers, maxTick, currentTick, Nil))
+      }
+    }
+  }
 
-        leaderboard.zipWithIndex.foreach(pair => {
-          println(s"${pair._2 + 1}. ${pair._1._1.path.name} - ${BigDecimal(pair._1._2).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble}km")
-        })
-
+  def zWynikami(workshop: ActorRef, drivers: List[ActorRef], maxTick: Int, currentTick: Int, wyniki: List[(ActorRef, Float)]): Receive={
+    case RouteTraveled(x)=>{
+      val noweWyniki = (sender(), x)::wyniki
+      if(noweWyniki.length == drivers.length){
+        for (i <- 1 to drivers.length){
+          println(s"Kierowca $i przejechal ${noweWyniki(i-1)._2} km")
+        }
         context.system.terminate()
-      } else context.become(
-        finishedRace(
-          distances.incl((sender(), distance)),
-          driverList.drop(1)
-        )
-      )
-    case msg =>
+      }
+      else{
+        context.become(zWynikami(workshop, drivers, maxTick, currentTick, noweWyniki))
+      }
+    }
+    case Tick =>{
+    }
   }
+
+  
 }
